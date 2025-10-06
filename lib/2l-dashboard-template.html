@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2L Dashboard - {PROJECT_NAME}</title>
+  <style>
+    /* Reset */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    /* Base Styles */
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0d1117;
+      color: #c9d1d9;
+      padding: 20px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* Header */
+    .header {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .header h1 {
+      font-size: 24px;
+      margin-bottom: 10px;
+      color: #58a6ff;
+    }
+
+    .header-info {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .header-info span {
+      color: #8b949e;
+    }
+
+    .header-info strong {
+      color: #c9d1d9;
+    }
+
+    /* Metrics Bar */
+    .metrics {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .metric {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 15px 20px;
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .metric-label {
+      font-size: 12px;
+      color: #8b949e;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+
+    .metric-value {
+      font-size: 24px;
+      font-weight: bold;
+      color: #58a6ff;
+    }
+
+    /* Section */
+    .section {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .section-title {
+      font-size: 18px;
+      margin-bottom: 15px;
+      color: #c9d1d9;
+      border-bottom: 1px solid #30363d;
+      padding-bottom: 10px;
+    }
+
+    /* Active Agents */
+    .agent-item {
+      padding: 10px;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 4px;
+      margin-bottom: 8px;
+    }
+
+    .agent-item strong {
+      color: #3fb950;
+    }
+
+    .agent-duration {
+      color: #8b949e;
+      font-size: 12px;
+    }
+
+    /* MCP Status */
+    .mcp-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+    }
+
+    .mcp-item {
+      padding: 10px;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .mcp-status {
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: bold;
+      background: #3fb950;
+      color: #000;
+    }
+
+    /* Event Log */
+    .event-log {
+      max-height: 500px;
+      overflow-y: auto;
+    }
+
+    .event-item {
+      padding: 8px;
+      border-bottom: 1px solid #30363d;
+      font-size: 13px;
+    }
+
+    .event-item:hover {
+      background: #0d1117;
+    }
+
+    .event-timestamp {
+      color: #8b949e;
+      font-size: 11px;
+      margin-right: 10px;
+    }
+
+    .event-type {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: bold;
+      margin-right: 10px;
+    }
+
+    .event-type-plan_start { background: #58a6ff; color: #000; }
+    .event-type-iteration_start { background: #58a6ff; color: #000; }
+    .event-type-phase_change { background: #a371f7; color: #000; }
+    .event-type-agent_spawn { background: #3fb950; color: #000; }
+    .event-type-agent_complete { background: #3fb950; color: #000; }
+    .event-type-validation_result { background: #f85149; color: #fff; }
+    .event-type-iteration_complete { background: #58a6ff; color: #000; }
+    .event-type-cost_update { background: #ffa657; color: #000; }
+
+    .event-data {
+      color: #c9d1d9;
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      padding: 20px;
+      color: #8b949e;
+      font-size: 12px;
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+      .metrics {
+        flex-direction: column;
+      }
+
+      .metric {
+        width: 100%;
+      }
+
+      .header-info {
+        flex-direction: column;
+        gap: 5px;
+      }
+
+      .mcp-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Scrollbar Styling */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #0d1117;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #30363d;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #484f58;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <h1>2L Dashboard - {PROJECT_NAME}</h1>
+    <div class="header-info">
+      <span><strong>Status:</strong> <span id="status">Loading...</span></span>
+      <span><strong>Phase:</strong> <span id="phase">-</span></span>
+      <span><strong>Iteration:</strong> <span id="iteration">-</span></span>
+    </div>
+  </div>
+
+  <!-- Metrics Bar -->
+  <div class="metrics">
+    <div class="metric">
+      <div class="metric-label">Elapsed Time</div>
+      <div class="metric-value" id="elapsed-time">0s</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Total Events</div>
+      <div class="metric-value" id="total-events">0</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Active Agents</div>
+      <div class="metric-value" id="active-agents">0</div>
+    </div>
+  </div>
+
+  <!-- Active Agents Section -->
+  <div class="section">
+    <div class="section-title">Active Agents</div>
+    <div id="active-agents-list">
+      <p style="color: #8b949e;">No active agents</p>
+    </div>
+  </div>
+
+  <!-- MCP Status Section -->
+  <div class="section">
+    <div class="section-title">MCP Servers</div>
+    <div class="mcp-grid">
+      <div class="mcp-item">
+        <span>Playwright</span>
+        <span class="mcp-status">Available</span>
+      </div>
+      <div class="mcp-item">
+        <span>Chrome DevTools</span>
+        <span class="mcp-status">Available</span>
+      </div>
+      <div class="mcp-item">
+        <span>Supabase Local</span>
+        <span class="mcp-status">Available</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Event Log Section -->
+  <div class="section">
+    <div class="section-title">Event Log (Last 50 Events)</div>
+    <div class="event-log" id="event-log">
+      <p style="color: #8b949e; padding: 10px;">Waiting for events...</p>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    Dashboard generated on {TIMESTAMP} | Polling: {EVENTS_PATH} | Auto-refresh: 2s
+  </div>
+
+  <script>
+    // Configuration
+    const EVENTS_PATH = '{EVENTS_PATH}';
+    const POLL_INTERVAL = 2000; // 2 seconds
+    const MAX_EVENTS_DISPLAY = 50;
+
+    // State
+    let allEvents = [];
+    let activeAgents = new Map();
+    let startTime = null;
+    let currentPhase = null;
+    let currentIteration = null;
+
+    // Format timestamp for display
+    function formatTimestamp(isoString) {
+      const date = new Date(isoString);
+      return date.toLocaleTimeString('en-US', { hour12: false });
+    }
+
+    // Calculate elapsed time
+    function updateElapsedTime() {
+      if (!startTime) return;
+      const now = new Date();
+      const elapsed = Math.floor((now - startTime) / 1000);
+      const hours = Math.floor(elapsed / 3600);
+      const minutes = Math.floor((elapsed % 3600) / 60);
+      const seconds = elapsed % 60;
+
+      let display = '';
+      if (hours > 0) display += `${hours}h `;
+      if (minutes > 0 || hours > 0) display += `${minutes}m `;
+      display += `${seconds}s`;
+
+      document.getElementById('elapsed-time').textContent = display;
+    }
+
+    // Render event in log
+    function renderEvent(event) {
+      const eventLog = document.getElementById('event-log');
+
+      // Remove "waiting" message on first event
+      if (eventLog.querySelector('p')) {
+        eventLog.innerHTML = '';
+      }
+
+      const eventItem = document.createElement('div');
+      eventItem.className = 'event-item';
+
+      const timestamp = document.createElement('span');
+      timestamp.className = 'event-timestamp';
+      timestamp.textContent = formatTimestamp(event.timestamp);
+
+      const type = document.createElement('span');
+      type.className = `event-type event-type-${event.event_type}`;
+      type.textContent = event.event_type.replace(/_/g, ' ').toUpperCase();
+
+      const data = document.createElement('span');
+      data.className = 'event-data';
+      data.textContent = event.data;
+
+      eventItem.appendChild(timestamp);
+      eventItem.appendChild(type);
+      eventItem.appendChild(data);
+
+      // Insert at top (newest first)
+      eventLog.insertBefore(eventItem, eventLog.firstChild);
+
+      // Limit display to MAX_EVENTS_DISPLAY
+      while (eventLog.children.length > MAX_EVENTS_DISPLAY) {
+        eventLog.removeChild(eventLog.lastChild);
+      }
+    }
+
+    // Update active agents list
+    function updateActiveAgents() {
+      const container = document.getElementById('active-agents-list');
+
+      if (activeAgents.size === 0) {
+        container.innerHTML = '<p style="color: #8b949e;">No active agents</p>';
+        return;
+      }
+
+      container.innerHTML = '';
+      activeAgents.forEach((agent, agentId) => {
+        const item = document.createElement('div');
+        item.className = 'agent-item';
+
+        const now = new Date();
+        const elapsed = Math.floor((now - agent.startTime) / 1000);
+
+        item.innerHTML = `
+          <strong>${agentId}</strong>: ${agent.task}
+          <div class="agent-duration">Running for ${elapsed}s</div>
+        `;
+
+        container.appendChild(item);
+      });
+    }
+
+    // Process event and update state
+    function processEvent(event) {
+      // Update metrics based on event type
+      switch (event.event_type) {
+        case 'plan_start':
+          startTime = new Date(event.timestamp);
+          document.getElementById('status').textContent = 'Running';
+          break;
+
+        case 'iteration_start':
+          currentIteration = event.data.match(/Iteration (\d+)/)?.[1] || '-';
+          document.getElementById('iteration').textContent = currentIteration;
+          break;
+
+        case 'phase_change':
+          currentPhase = event.data.replace('Phase: ', '').replace('Starting ', '');
+          document.getElementById('phase').textContent = currentPhase;
+          break;
+
+        case 'agent_spawn':
+          activeAgents.set(event.agent_id, {
+            task: event.data,
+            startTime: new Date(event.timestamp)
+          });
+          break;
+
+        case 'agent_complete':
+          activeAgents.delete(event.agent_id);
+          break;
+
+        case 'iteration_complete':
+          document.getElementById('status').textContent = 'Complete';
+          break;
+      }
+
+      // Update displays
+      document.getElementById('total-events').textContent = allEvents.length;
+      document.getElementById('active-agents').textContent = activeAgents.size;
+      updateActiveAgents();
+      renderEvent(event);
+    }
+
+    // Poll events file
+    async function pollEvents() {
+      try {
+        const response = await fetch(EVENTS_PATH);
+        if (!response.ok) throw new Error('Failed to fetch events');
+
+        const text = await response.text();
+        const lines = text.trim().split('\n').filter(line => line);
+
+        // Process only new events
+        if (lines.length > allEvents.length) {
+          const newLines = lines.slice(allEvents.length);
+          newLines.forEach(line => {
+            try {
+              const event = JSON.parse(line);
+              allEvents.push(event);
+              processEvent(event);
+            } catch (e) {
+              console.error('Invalid JSON:', line, e);
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Polling error:', error);
+        document.getElementById('status').textContent = 'Error loading events';
+      }
+
+      // Update elapsed time
+      updateElapsedTime();
+    }
+
+    // Initialize polling
+    pollEvents(); // Initial load
+    setInterval(pollEvents, POLL_INTERVAL);
+    setInterval(updateElapsedTime, 1000); // Update time every second
+  </script>
+</body>
+</html>

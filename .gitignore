@@ -1,0 +1,24 @@
+# Sensitive/personal files
+.credentials.json
+settings.local.json
+
+# Runtime/history files
+history.jsonl
+file-history/
+projects/
+todos/
+shell-snapshots/
+statsig/
+ide/
+plugins/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
