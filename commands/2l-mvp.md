@@ -1244,7 +1244,8 @@ def update_iteration_status(master_plan_path, iter_id, status):
 
 def setup_github_repo(plan_id, plan_dir, project_name=None):
     """
-    Create GitHub repository for the plan if it doesn't exist.
+    Create GitHub repository for the PROJECT (not per-plan).
+    All plans within a project share the same repository.
     Updates config with GitHub repo URL.
     """
 
@@ -1262,18 +1263,21 @@ def setup_github_repo(plan_id, plan_dir, project_name=None):
         print("      Run: gh auth login")
         return None
 
-    # Check if remote already exists
+    # Check if remote already exists (from any previous plan)
     remote_check = run_command("git remote get-url origin", capture_output=True, check=False)
     if remote_check.returncode == 0:
         repo_url = remote_check.stdout.strip()
-        print(f"   ✓ GitHub repo already configured: {repo_url}")
+        print(f"   ✓ GitHub repo already exists: {repo_url}")
+        # Store repo URL for this plan too
+        update_config_github_repo(plan_id, repo_url)
         return repo_url
 
-    # Determine repo name
+    # Determine repo name (PROJECT name, not plan-specific)
     if project_name is None:
         project_name = os.path.basename(os.getcwd())
 
-    repo_name = f"{project_name}-{plan_id}"
+    # Use project name directly, without plan suffix
+    repo_name = project_name
 
     print(f"   🔧 Creating GitHub repository: {repo_name}")
 
@@ -1301,7 +1305,7 @@ def setup_github_repo(plan_id, plan_dir, project_name=None):
 
     print(f"   ✅ GitHub repo created: {repo_url}")
 
-    # Update config with repo URL
+    # Store repo URL in config (for this plan and future reference)
     update_config_github_repo(plan_id, repo_url)
 
     return repo_url

@@ -116,9 +116,10 @@ After installation, the 2L commands will be available in Claude Code:
 2L now supports automatic GitHub repository creation and pushing:
 
 ### Features
-- **Auto-create repos** - GitHub repositories are created automatically when starting a new plan
+- **Auto-create repos** - GitHub repository created on first plan (one repo per project)
 - **Auto-push commits** - Each iteration is automatically pushed to GitHub after committing
 - **Tag synchronization** - Git tags are pushed to GitHub for easy rollback
+- **Multi-plan support** - All plans within a project share the same repository
 - **Optional setup** - Works with or without GitHub CLI
 
 ### Setup
@@ -141,9 +142,10 @@ After installation, the 2L commands will be available in Claude Code:
 
 3. **Start using 2L** - repos are created automatically:
    ```bash
+   cd my-project
    /2l-mvp "Build a task manager"
    # Creates local git repo
-   # Creates GitHub repo: <project-name>-plan-1
+   # Creates GitHub repo: my-project
    # Pushes commits after each iteration
    ```
 
@@ -154,7 +156,10 @@ GitHub integration is automatic but gracefully degrades:
 - ⚠️ **Without `gh` CLI**: Works with local git only
 - 🔧 **Manual setup**: Can set up remote manually anytime
 
-Each plan stores its GitHub repo URL in `.2L/config.yaml` for tracking.
+**Important:** One repository per project, not per plan.
+- `plan-1`, `plan-2`, `plan-3` all push to the same GitHub repo
+- Repo name is based on your project directory name
+- Each plan's metadata is stored in `.2L/config.yaml`
 
 ## Requirements
 
