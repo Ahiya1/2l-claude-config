@@ -279,6 +279,32 @@ echo "🎉 Iteration committed!"
 echo ""
 echo "Commit: ${COMMIT_HASH:0:8}"
 echo "Tag: ${EXISTING_TAG}"
+
+# Push to GitHub if remote exists
+if git remote get-url origin > /dev/null 2>&1; then
+    REPO_URL=$(git remote get-url origin)
+    echo ""
+    echo "📤 Pushing to GitHub: ${REPO_URL}"
+
+    # Get current branch
+    BRANCH=$(git branch --show-current)
+
+    # Push commits
+    if git push origin $BRANCH 2>&1; then
+        echo "✅ Pushed to ${BRANCH}"
+
+        # Push tags
+        if git push origin ${EXISTING_TAG} 2>&1; then
+            echo "✅ Pushed tag: ${EXISTING_TAG}"
+        else
+            echo "⚠️  Failed to push tag"
+        fi
+    else
+        echo "⚠️  Failed to push to GitHub"
+        echo "   You can push manually: git push origin ${BRANCH} && git push origin ${EXISTING_TAG}"
+    fi
+fi
+
 echo ""
 echo "⚠️  Remember: This iteration was force-committed."
 echo "   Validation may have been skipped."

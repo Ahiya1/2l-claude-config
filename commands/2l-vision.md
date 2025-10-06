@@ -292,6 +292,20 @@ step_5_report_to_user:
   - "Status: VISIONED"
   - "Next steps: /2l-plan or /2l-mvp"
 
+step_6_github_setup:
+  # Optionally create GitHub repository
+  - Ask user: "Would you like to create a GitHub repository for this plan? (y/N)"
+  - If yes:
+    * Initialize git if not already: `git init && git branch -M main`
+    * Create GitHub repo using gh CLI
+    * Configure remote origin
+    * Store repo URL in config
+    * Initial commit of vision.md
+    * Push to GitHub
+  - If no or gh not available:
+    * Continue without GitHub integration
+    * User can set up manually later
+
 # KEY: No Task tool usage, no agent spawning
 # This session BECOMES the vision gathering directly
 ```

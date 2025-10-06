@@ -8,6 +8,7 @@ The 2L system provides a structured approach to building complex software projec
 - **10 specialized agents** for exploration, planning, building, integration, and validation
 - **17 commands** for managing development workflows, plans, and iterations
 - **Systematic iterative development** with built-in quality controls
+- **GitHub integration** - Automatic repository creation and push on commits
 
 ## Components
 
@@ -110,11 +111,57 @@ After installation, the 2L commands will be available in Claude Code:
 └── schemas/        # Configuration schemas
 ```
 
+## GitHub Integration
+
+2L now supports automatic GitHub repository creation and pushing:
+
+### Features
+- **Auto-create repos** - GitHub repositories are created automatically when starting a new plan
+- **Auto-push commits** - Each iteration is automatically pushed to GitHub after committing
+- **Tag synchronization** - Git tags are pushed to GitHub for easy rollback
+- **Optional setup** - Works with or without GitHub CLI
+
+### Setup
+
+1. **Install GitHub CLI** (if not already installed):
+   ```bash
+   # Ubuntu/Debian
+   sudo apt install gh
+
+   # macOS
+   brew install gh
+
+   # Other: https://cli.github.com/
+   ```
+
+2. **Authenticate with GitHub**:
+   ```bash
+   gh auth login
+   ```
+
+3. **Start using 2L** - repos are created automatically:
+   ```bash
+   /2l-mvp "Build a task manager"
+   # Creates local git repo
+   # Creates GitHub repo: <project-name>-plan-1
+   # Pushes commits after each iteration
+   ```
+
+### Configuration
+
+GitHub integration is automatic but gracefully degrades:
+- ✅ **With `gh` CLI**: Auto-creates repos and pushes
+- ⚠️ **Without `gh` CLI**: Works with local git only
+- 🔧 **Manual setup**: Can set up remote manually anytime
+
+Each plan stores its GitHub repo URL in `.2L/config.yaml` for tracking.
+
 ## Requirements
 
 - Claude Code CLI
 - Git (for version control)
 - Bash/Zsh shell
+- GitHub CLI (`gh`) - Optional, for GitHub integration
 
 ## Contributing
 

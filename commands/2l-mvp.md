@@ -245,6 +245,20 @@ PLAN_DIR=".2L/${plan_id}"
 MASTER_EXPLORATION="${PLAN_DIR}/master-exploration"
 MASTER_PLAN="${PLAN_DIR}/master-plan.yaml"
 
+# Step 0: GitHub Repository Setup
+echo ""
+echo "=== GitHub Integration ==="
+
+# Initialize git if not already
+if ! git rev-parse --git-dir > /dev/null 2>&1; then
+    echo "🔧 Initializing git repository..."
+    git init
+    git branch -M main
+fi
+
+# Setup GitHub repo
+setup_github_repo(plan_id, PLAN_DIR)
+
 # Step 1: Master Exploration with Adaptive Spawning
 VISION_FILE="${PLAN_DIR}/vision.md"
 
@@ -1179,6 +1193,9 @@ Co-Authored-By: Claude <noreply@anthropic.com>"""
 
     print(f"   ✅ Auto-committed: {tag}")
 
+    # Push to GitHub if remote exists
+    push_to_github(plan_id, tag)
+
 
 def create_final_integration_report(integration_dir, final_round, status='SUCCESS'):
     """
@@ -1223,6 +1240,123 @@ def update_iteration_status(master_plan_path, iter_id, status):
             break
 
     write_yaml(master_plan_path, master_plan)
+
+
+def setup_github_repo(plan_id, plan_dir, project_name=None):
+    """
+    Create GitHub repository for the plan if it doesn't exist.
+    Updates config with GitHub repo URL.
+    """
+
+    # Check if gh CLI is available
+    gh_check = run_command("gh --version", capture_output=True, check=False)
+    if gh_check.returncode != 0:
+        print("   ⚠️  GitHub CLI (gh) not installed - skipping GitHub integration")
+        print("      Install: https://cli.github.com/")
+        return None
+
+    # Check if already authenticated
+    auth_check = run_command("gh auth status", capture_output=True, check=False)
+    if auth_check.returncode != 0:
+        print("   ⚠️  GitHub CLI not authenticated - skipping GitHub integration")
+        print("      Run: gh auth login")
+        return None
+
+    # Check if remote already exists
+    remote_check = run_command("git remote get-url origin", capture_output=True, check=False)
+    if remote_check.returncode == 0:
+        repo_url = remote_check.stdout.strip()
+        print(f"   ✓ GitHub repo already configured: {repo_url}")
+        return repo_url
+
+    # Determine repo name
+    if project_name is None:
+        project_name = os.path.basename(os.getcwd())
+
+    repo_name = f"{project_name}-{plan_id}"
+
+    print(f"   🔧 Creating GitHub repository: {repo_name}")
+
+    # Read vision for repo description
+    vision_file = f"{plan_dir}/vision.md"
+    description = "2L Generated Project"
+    if file_exists(vision_file):
+        vision_content = read_file(vision_file)
+        first_line = vision_content.split('\n')[0].strip('# ')
+        description = first_line[:100] if first_line else description
+
+    # Create GitHub repo
+    create_result = run_command(
+        f'gh repo create {repo_name} --public --source=. --remote=origin --description="{description}"',
+        capture_output=True,
+        check=False
+    )
+
+    if create_result.returncode != 0:
+        print(f"   ⚠️  Failed to create GitHub repo: {create_result.stderr}")
+        return None
+
+    # Get repo URL
+    repo_url = run_command("gh repo view --json url -q .url").strip()
+
+    print(f"   ✅ GitHub repo created: {repo_url}")
+
+    # Update config with repo URL
+    update_config_github_repo(plan_id, repo_url)
+
+    return repo_url
+
+
+def push_to_github(plan_id, tag=None):
+    """
+    Push commits and tags to GitHub remote.
+    """
+
+    # Check if remote exists
+    remote_check = run_command("git remote get-url origin", capture_output=True, check=False)
+    if remote_check.returncode != 0:
+        # No remote configured, skip push
+        return
+
+    repo_url = remote_check.stdout.strip()
+
+    print(f"   📤 Pushing to GitHub: {repo_url}")
+
+    # Get current branch
+    branch = run_command("git branch --show-current").strip()
+
+    # Push commits
+    push_result = run_command(f"git push origin {branch}", capture_output=True, check=False)
+
+    if push_result.returncode != 0:
+        print(f"   ⚠️  Push failed: {push_result.stderr}")
+        return
+
+    print(f"   ✅ Pushed to {branch}")
+
+    # Push tags if specified
+    if tag:
+        tag_push_result = run_command(f"git push origin {tag}", capture_output=True, check=False)
+        if tag_push_result.returncode == 0:
+            print(f"   ✅ Pushed tag: {tag}")
+        else:
+            print(f"   ⚠️  Tag push failed: {tag_push_result.stderr}")
+
+
+def update_config_github_repo(plan_id, repo_url):
+    """
+    Update config with GitHub repository URL for a plan.
+    """
+
+    config_file = ".2L/config.yaml"
+    config = read_yaml(config_file)
+
+    for plan in config.get('plans', []):
+        if plan.get('plan_id') == plan_id:
+            plan['github_repo'] = repo_url
+            break
+
+    write_yaml(config_file, config)
 ```
 
 ---
