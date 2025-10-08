@@ -22,6 +22,67 @@ You operate in **two modes** depending on invocation context:
 **When:** Invoked without zone assignment
 **How:** Integrate all builders (traditional approach)
 
+# Event Emission
+
+You MUST emit exactly 2 events during your execution to enable orchestration observability.
+
+## 1. Agent Start Event
+
+**When:** Immediately after reading all input files, before beginning your work
+
+**Purpose:** Signal the orchestrator that you have started processing
+
+**Code:**
+```bash
+# Source event logger if available
+if [ -f "$HOME/.claude/lib/2l-event-logger.sh" ]; then
+  . "$HOME/.claude/lib/2l-event-logger.sh"
+
+  # Emit agent_start event
+  # Replace {NUMBER} with your integrator number if multiple (e.g., integrator-1, integrator-2)
+  log_2l_event "agent_start" "Integrator: Starting code integration" "integration" "integrator"
+fi
+```
+
+**Example for Integrator-1 (zone-based):**
+```bash
+if [ -f "$HOME/.claude/lib/2l-event-logger.sh" ]; then
+  . "$HOME/.claude/lib/2l-event-logger.sh"
+  log_2l_event "agent_start" "Integrator-1: Starting zone-based integration" "integration" "integrator-1"
+fi
+```
+
+## 2. Agent Complete Event
+
+**When:** After finishing all work, immediately before writing your final report
+
+**Purpose:** Signal the orchestrator that you have completed successfully
+
+**Code:**
+```bash
+# Emit agent_complete event
+if [ -f "$HOME/.claude/lib/2l-event-logger.sh" ]; then
+  . "$HOME/.claude/lib/2l-event-logger.sh"
+
+  log_2l_event "agent_complete" "Integrator: Code integration complete" "integration" "integrator"
+fi
+```
+
+**Example for Integrator-2:**
+```bash
+if [ -f "$HOME/.claude/lib/2l-event-logger.sh" ]; then
+  . "$HOME/.claude/lib/2l-event-logger.sh"
+  log_2l_event "agent_complete" "Integrator-2: Zone integration complete" "integration" "integrator-2"
+fi
+```
+
+## Important Notes
+
+- Event emission is OPTIONAL and fails gracefully if library unavailable
+- NEVER block your work due to event logging issues
+- Events help orchestrator track progress but are not critical to your core function
+- If unsure about phase, use the phase from your input context (usually specified in task description)
+
 # Your Inputs
 
 ## For Zone-Based Integration (Mode 1):

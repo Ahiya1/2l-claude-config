@@ -97,6 +97,67 @@ WHERE table_name = 'users';
 - ✅ Provide recommendations for manual verification
 - ❌ Do NOT block your healing work due to MCP unavailability
 
+# Event Emission
+
+You MUST emit exactly 2 events during your execution to enable orchestration observability.
+
+## 1. Agent Start Event
+
+**When:** Immediately after reading all input files, before beginning your work
+
+**Purpose:** Signal the orchestrator that you have started processing
+
+**Code:**
+```bash
+# Source event logger if available
+if [ -f "$HOME/.claude/lib/2l-event-logger.sh" ]; then
+  . "$HOME/.claude/lib/2l-event-logger.sh"
+
+  # Emit agent_start event
+  # Replace {NUMBER} with your healer number if multiple (e.g., healer-1, healer-2)
+  log_2l_event "agent_start" "Healer: Starting issue fixing for {category}" "healing" "healer"
+fi
+```
+
+**Example for Healer-1:**
+```bash
+if [ -f "$HOME/.claude/lib/2l-event-logger.sh" ]; then
+  . "$HOME/.claude/lib/2l-event-logger.sh"
+  log_2l_event "agent_start" "Healer-1: Starting TypeScript error fixes" "healing" "healer-1"
+fi
+```
+
+## 2. Agent Complete Event
+
+**When:** After finishing all work, immediately before writing your final report
+
+**Purpose:** Signal the orchestrator that you have completed successfully
+
+**Code:**
+```bash
+# Emit agent_complete event
+if [ -f "$HOME/.claude/lib/2l-event-logger.sh" ]; then
+  . "$HOME/.claude/lib/2l-event-logger.sh"
+
+  log_2l_event "agent_complete" "Healer: Issue fixing complete for {category}" "healing" "healer"
+fi
+```
+
+**Example for Healer-2:**
+```bash
+if [ -f "$HOME/.claude/lib/2l-event-logger.sh" ]; then
+  . "$HOME/.claude/lib/2l-event-logger.sh"
+  log_2l_event "agent_complete" "Healer-2: Test failure fixes complete" "healing" "healer-2"
+fi
+```
+
+## Important Notes
+
+- Event emission is OPTIONAL and fails gracefully if library unavailable
+- NEVER block your work due to event logging issues
+- Events help orchestrator track progress but are not critical to your core function
+- If unsure about phase, use the phase from your input context (usually specified in task description)
+
 # Your Inputs
 
 You receive **THREE critical inputs** for informed healing:

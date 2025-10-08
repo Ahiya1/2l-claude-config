@@ -33,6 +33,12 @@ Uses existing vision and master plan → executes all iterations
 
 ## Event Logging & Dashboard Initialization
 
+The orchestrator emits events throughout execution to enable real-time observability via the dashboard. All event emission is **optional** and fails gracefully if the event logger library is not available.
+
+### Event Logger Initialization
+
+At orchestrator startup, initialize the event logging system:
+
 ```bash
 # Source event logger library if available (backward compatible)
 EVENT_LOGGING_ENABLED=false
@@ -44,6 +50,120 @@ else
   echo "[2L] Event logging not available (continuing without dashboard)"
 fi
 ```
+
+**Key principles:**
+- Set `EVENT_LOGGING_ENABLED=false` initially for backward compatibility
+- Only enable if library exists and sources successfully
+- All event emissions must check `EVENT_LOGGING_ENABLED` before calling `log_2l_event`
+- System continues normally even if event logging is unavailable
+
+### Event Types Emitted by Orchestrator
+
+The orchestrator emits the following event types throughout execution:
+
+| Event Type | When Emitted | Phase | Purpose |
+|------------|--------------|-------|---------|
+| `plan_start` | Orchestrator initialization (all 3 levels) | initialization | Signal orchestration beginning |
+| `complexity_decision` | After analyzing vision complexity | master_exploration | Document explorer count decision |
+| `phase_change` | Every phase transition | current phase | Track orchestration progress |
+| `agent_spawn` | When spawning any agent | agent's phase | Track agent creation |
+| `agent_complete` | When agent finishes | agent's phase | Track agent completion |
+| `iteration_start` | Beginning of each iteration | initialization | Mark iteration boundary |
+| `validation_result` | After validation completes | validation | Document PASS/FAIL status |
+| `iteration_complete` | After successful iteration | complete | Mark iteration success |
+
+All events are written to `.2L/events.jsonl` in JSON Lines format with this schema:
+
+```json
+{
+  "timestamp": "2025-10-08T14:23:45.123Z",
+  "event_type": "phase_change",
+  "phase": "building",
+  "agent_id": "orchestrator",
+  "data": "Starting Building phase"
+}
+```
+
+### Event Emission Guidelines
+
+**When to emit events:**
+
+1. **Initialization (4 events):**
+   - `plan_start` - Level 1, 2, 3, or Resume entry points
+
+2. **Master Mode (4+ events):**
+   - `complexity_decision` - After analyzing vision complexity
+   - `phase_change` - Master exploration start
+   - `agent_spawn` - For each master explorer (2-4)
+   - `agent_complete` - For each master explorer
+   - `phase_change` - Master planning start
+
+3. **Per Iteration (12+ events):**
+   - `iteration_start` - Beginning of iteration
+   - `phase_change` - Exploration start
+   - `agent_spawn` × 2-3 - For explorers
+   - `agent_complete` × 2-3 - For explorers
+   - `phase_change` - Planning start
+   - `agent_spawn` - For planner
+   - `agent_complete` - For planner
+   - `phase_change` - Building start
+   - `agent_spawn` × N - For builders (typically 2-4)
+   - `agent_complete` × N - For builders
+   - `phase_change` - Integration start
+   - `agent_spawn` × M - For integrators (per round)
+   - `agent_complete` × M - For integrators
+   - `phase_change` - Validation start
+   - `agent_spawn` - For validator
+   - `agent_complete` - For validator
+   - `validation_result` - Validation outcome
+   - `iteration_complete` - If validation passes
+
+4. **Healing (if validation fails, 6+ events):**
+   - `phase_change` - Healing start
+   - `agent_spawn` × K - For healing explorers
+   - `agent_complete` × K - For healing explorers
+   - `agent_spawn` × L - For healers (by category)
+   - `agent_complete` × L - For healers
+   - `validation_result` - Re-validation outcome
+   - `iteration_complete` - If healing successful
+
+**Example: Simple Single-Iteration Plan**
+
+Total events: ~35-40 events
+
+- 1 `plan_start`
+- 1 `complexity_decision` (2 explorers)
+- 6 master exploration events (phase_change + 2 spawn + 2 complete)
+- 1 master planning `phase_change`
+- 1 `iteration_start`
+- 8 exploration events (phase_change + 2 spawn + 2 complete)
+- 3 planning events (phase_change + spawn + complete)
+- 7 building events (phase_change + 3 spawn + 3 complete)
+- 5 integration events (phase_change + 2 spawn + 2 complete)
+- 4 validation events (phase_change + spawn + complete + result)
+- 1 `iteration_complete`
+
+**Backward Compatibility:**
+
+All event emission is wrapped in conditional checks:
+
+```bash
+if [ "$EVENT_LOGGING_ENABLED" = true ]; then
+  log_2l_event "event_type" "description" "phase" "agent_id"
+fi
+```
+
+This ensures:
+- Orchestrator works even if event logger library is missing
+- No crashes or failures due to event emission
+- Graceful degradation to non-observable mode
+- Dashboard features are optional, not required
+
+**Agent Event Emission:**
+
+Each agent (explorer, planner, builder, integrator, validator, healer) is responsible for emitting its own `agent_start` and `agent_complete` events. The orchestrator documentation shows the expected event pattern, but agents emit these events themselves via their markdown template instructions.
+
+See agent markdown files in `~/.claude/agents/` for agent-specific event emission code.
 
 ---
 
@@ -106,10 +226,17 @@ if arguments_provided:
     MODE = 'MASTER'
     plan_id = next_plan_id
 
-    # EVENT: plan_start
+    # EVENT: plan_start (Level 1)
+    # Emit plan_start event to signal beginning of autonomous orchestration
     if [ "$EVENT_LOGGING_ENABLED" = true ]; then
       log_2l_event "plan_start" "Plan $plan_id started in MASTER mode (Level 1: Full Autonomy)" "initialization" "orchestrator"
     fi
+
+    # Event details:
+    # - event_type: "plan_start" - Marks orchestration beginning
+    # - data: Descriptive message including plan ID and level
+    # - phase: "initialization" - Pre-iteration orchestration setup
+    # - agent_id: "orchestrator" - Always "orchestrator" for orchestrator events
 
 else:
     # Check for existing plan
@@ -144,10 +271,15 @@ else:
         MODE = 'MASTER'
         plan_id = current_plan
 
-        # EVENT: plan_start
+        # EVENT: plan_start (Level 2)
+        # Emit plan_start event for vision-controlled orchestration
         if [ "$EVENT_LOGGING_ENABLED" = true ]; then
           log_2l_event "plan_start" "Plan $plan_id started in MASTER mode (Level 2: Vision Control)" "initialization" "orchestrator"
         fi
+
+        # Event details:
+        # - Level 2: User provided vision.md, orchestrator auto-creates master plan
+        # - phase: "initialization" - Before master exploration begins
 
     elif plan_status == 'PLANNED' and has_master_plan:
         # LEVEL 3: Full Control
@@ -159,10 +291,16 @@ else:
         MODE = 'ITERATION_EXECUTOR'
         plan_id = current_plan
 
-        # EVENT: plan_start
+        # EVENT: plan_start (Level 3)
+        # Emit plan_start event for fully-controlled orchestration
         if [ "$EVENT_LOGGING_ENABLED" = true ]; then
           log_2l_event "plan_start" "Plan $plan_id started in ITERATION_EXECUTOR mode (Level 3: Full Control)" "initialization" "orchestrator"
         fi
+
+        # Event details:
+        # - Level 3: User provided both vision.md and master-plan.yaml
+        # - Orchestrator executes pre-defined iteration plan
+        # - phase: "initialization" - Before iteration execution begins
 
     elif plan_status == 'IN_PROGRESS':
         # Resume in-progress plan
@@ -171,10 +309,16 @@ else:
         MODE = 'ITERATION_EXECUTOR'
         plan_id = current_plan
 
-        # EVENT: plan_start (resume)
+        # EVENT: plan_start (Resume)
+        # Emit plan_start event when resuming interrupted orchestration
         if [ "$EVENT_LOGGING_ENABLED" = true ]; then
           log_2l_event "plan_start" "Plan $plan_id resumed (IN_PROGRESS)" "initialization" "orchestrator"
         fi
+
+        # Event details:
+        # - Resuming a plan that was previously interrupted
+        # - Orchestrator will detect where to continue from config.yaml state
+        # - phase: "initialization" - Re-entry point
 
     elif plan_status == 'COMPLETE':
         error(f"Plan {current_plan} is already complete. Create new plan with /2l-vision")
@@ -299,18 +443,31 @@ yq eval ".plans[] | select(.plan_id == \"${plan_id}\") | .master_exploration.num
 yq eval ".plans[] | select(.plan_id == \"${plan_id}\") | .master_exploration.complexity_level = \"$complexity\"" -i .2L/config.yaml
 
 # EVENT: complexity_decision
+# Document the adaptive spawning decision based on vision analysis
 if [ "$EVENT_LOGGING_ENABLED" = true ]; then
   log_2l_event "complexity_decision" "Spawning $num_explorers explorers (complexity: $complexity)" "master_exploration" "orchestrator"
 fi
+
+# Event details:
+# - event_type: "complexity_decision" - Records adaptive spawning logic
+# - data: Includes explorer count and complexity assessment (SIMPLE, MEDIUM, COMPLEX)
+# - phase: "master_exploration" - During master exploration setup
+# - Purpose: Dashboard shows how orchestrator adapted to vision complexity
 
 # Check if master exploration needs to run
 if [ ! -d "$MASTER_EXPLORATION" ] || [ $(ls ${MASTER_EXPLORATION}/master-explorer-*-report.md 2>/dev/null | wc -l) -lt $num_explorers ]; then
     echo "🔍 Running master exploration..."
 
-    # EVENT: phase_change
+    # EVENT: phase_change (Master Exploration Start)
+    # Signal transition into master exploration phase
     if [ "$EVENT_LOGGING_ENABLED" = true ]; then
       log_2l_event "phase_change" "Starting Master Exploration phase" "master_exploration" "orchestrator"
     fi
+
+    # Event details:
+    # - event_type: "phase_change" - Marks phase transition
+    # - phase: "master_exploration" - The current phase
+    # - Purpose: Dashboard timeline shows when master exploration begins
 
     mkdir -p ${MASTER_EXPLORATION}
 
@@ -342,10 +499,17 @@ if [ ! -d "$MASTER_EXPLORATION" ] || [ $(ls ${MASTER_EXPLORATION}/master-explore
 
         echo "   Spawning Explorer $explorer_id: $FOCUS_AREA"
 
-        # EVENT: agent_spawn
+        # EVENT: agent_spawn (Master Explorer)
+        # Track creation of each master explorer agent
         if [ "$EVENT_LOGGING_ENABLED" = true ]; then
           log_2l_event "agent_spawn" "Master Explorer-$explorer_id: $FOCUS_AREA" "master_exploration" "master-explorer-$explorer_id"
         fi
+
+        # Event details:
+        # - event_type: "agent_spawn" - Agent creation notification
+        # - data: Includes explorer ID and focus area
+        # - agent_id: "master-explorer-{N}" - Unique identifier for this explorer
+        # - Purpose: Dashboard shows which explorers are active
 
         # Spawn explorer using task tool
         spawn_task(
@@ -370,22 +534,37 @@ Create your report at: {MASTER_EXPLORATION}/master-explorer-${explorer_id}-repor
     echo "   Waiting for $num_explorers master explorers..."
     # (Task tool handles this)
 
-    # EVENT: agent_complete (master explorers)
+    # EVENT: agent_complete (Master Explorers)
+    # Track completion of each master explorer
+    # NOTE: In actual implementation, each explorer emits its own agent_complete event
+    # This is documentation showing the expected event pattern
     if [ "$EVENT_LOGGING_ENABLED" = true ]; then
       for explorer_id in $(seq 1 $num_explorers); do
         log_2l_event "agent_complete" "Master Explorer-$explorer_id completed" "master_exploration" "master-explorer-$explorer_id"
       done
     fi
+
+    # Event details:
+    # - event_type: "agent_complete" - Agent completion notification
+    # - Emitted once per explorer when their report is written
+    # - agent_id: Matches the agent_id from agent_spawn
+    # - Purpose: Dashboard can calculate agent duration (spawn → complete)
 fi
 
 # Step 2: Auto-Create Master Plan
 if [ ! -f "$MASTER_PLAN" ]; then
     echo "📊 Creating master plan from exploration..."
 
-    # EVENT: phase_change
+    # EVENT: phase_change (Master Planning Start)
+    # Signal transition from master exploration to master planning
     if [ "$EVENT_LOGGING_ENABLED" = true ]; then
       log_2l_event "phase_change" "Starting Master Planning phase" "master_planning" "orchestrator"
     fi
+
+    # Event details:
+    # - phase: "master_planning" - Synthesizing exploration into master plan
+    # - Follows completion of all master explorers
+    # - Purpose: Dashboard shows orchestrator is creating iteration breakdown
 
     # Read all explorer reports dynamically (2-4 reports)
     EXPLORER_REPORTS=""
@@ -512,10 +691,17 @@ for iteration_config in master_plan['iterations']:
     if validation_status == 'PASS':
         print(f"✅ Iteration {iter_id}/{total_iterations} complete!")
 
-        # EVENT: iteration_complete
+        # EVENT: iteration_complete (First-Pass Validation)
+        # Mark successful iteration completion after first-pass validation
         if [ "$EVENT_LOGGING_ENABLED" = true ]; then
           log_2l_event "iteration_complete" "Iteration ${global_iter} completed successfully" "complete" "orchestrator"
         fi
+
+        # Event details:
+        # - event_type: "iteration_complete" - Iteration success marker
+        # - data: Iteration completed on first-pass validation (no healing needed)
+        # - phase: "complete" - Terminal phase
+        # - Purpose: Dashboard shows iteration completion, enables progress tracking
 
         # Auto-commit (Mission 3)
         auto_commit_iteration(plan_id, iter_id, global_iter, iter_vision)
@@ -551,18 +737,32 @@ def execute_iteration(plan_id, iter_id, global_iter, iteration_config):
     update_config_current_iteration(global_iter)
 
     # EVENT: iteration_start
+    # Mark the beginning of a new iteration
     if [ "$EVENT_LOGGING_ENABLED" = true ]; then
       iter_vision=$(head -n 1 ${ITER_DIR}/../vision.md 2>/dev/null || echo "Iteration ${global_iter}")
       log_2l_event "iteration_start" "Iteration ${global_iter}: ${iter_vision}" "initialization" "orchestrator"
     fi
 
+    # Event details:
+    # - event_type: "iteration_start" - Iteration boundary marker
+    # - data: Includes global iteration number and vision summary
+    # - phase: "initialization" - Before exploration phase begins
+    # - Purpose: Dashboard shows iteration boundaries and tracks progress through master plan
+
     # Phase 1: EXPLORATION
     print(f"   Phase 1: Exploration")
 
-    # EVENT: phase_change
+    # EVENT: phase_change (Exploration Start)
+    # Signal transition into exploration phase of iteration
     if [ "$EVENT_LOGGING_ENABLED" = true ]; then
       log_2l_event "phase_change" "Starting Exploration phase" "exploration" "orchestrator"
     fi
+
+    # Event details:
+    # - event_type: "phase_change" - Phase transition marker
+    # - phase: "exploration" - Current iteration phase
+    # - Emitted at start of every iteration's exploration phase
+    # - Purpose: Dashboard timeline shows phase transitions within iterations
 
     exploration_dir = f"{ITER_DIR}/exploration"
 
@@ -572,10 +772,16 @@ def execute_iteration(plan_id, iter_id, global_iter, iteration_config):
         # Spawn 2-3 explorers in parallel
         # Use Task tool with subagent_type: "2l-explorer"
 
-        # EVENT: agent_spawn
+        # EVENT: agent_spawn (Explorer-1)
+        # Track creation of iteration explorer agents
         if [ "$EVENT_LOGGING_ENABLED" = true ]; then
           log_2l_event "agent_spawn" "Explorer-1: Architecture & Structure" "exploration" "explorer-1"
         fi
+
+        # Event details:
+        # - Emitted for each explorer spawned during iteration
+        # - agent_id format: "explorer-{N}" where N is explorer number
+        # - Each explorer will emit its own agent_complete event when done
 
         spawn_task(
             type="2l-explorer",
@@ -594,7 +800,7 @@ Analyze:
 Create report at: {exploration_dir}/explorer-1-report.md"
         )
 
-        # EVENT: agent_spawn
+        # EVENT: agent_spawn (Explorer-2)
         if [ "$EVENT_LOGGING_ENABLED" = true ]; then
           log_2l_event "agent_spawn" "Explorer-2: Technology Patterns & Dependencies" "exploration" "explorer-2"
         fi
@@ -638,19 +844,31 @@ Create report at: {exploration_dir}/explorer-3-report.md"
         print("      Explorers spawned, waiting for completion...")
         # Task tool waits for completion
 
-        # EVENT: agent_complete (explorers)
+        # EVENT: agent_complete (Explorers)
+        # NOTE: In actual implementation, each explorer emits its own agent_complete event
+        # This documents the expected event pattern
         if [ "$EVENT_LOGGING_ENABLED" = true ]; then
           log_2l_event "agent_complete" "Explorer-1 completed" "exploration" "explorer-1"
           log_2l_event "agent_complete" "Explorer-2 completed" "exploration" "explorer-2"
         fi
 
+        # Event details:
+        # - One agent_complete event per explorer
+        # - Emitted by each explorer agent when writing final report
+        # - Dashboard uses these to calculate exploration phase duration
+
     # Phase 2: PLANNING
     print(f"   Phase 2: Planning")
 
-    # EVENT: phase_change
+    # EVENT: phase_change (Planning Start)
+    # Signal transition from exploration to planning phase
     if [ "$EVENT_LOGGING_ENABLED" = true ]; then
       log_2l_event "phase_change" "Starting Planning phase" "planning" "orchestrator"
     fi
+
+    # Event details:
+    # - phase: "planning" - Planner synthesizes exploration into build plan
+    # - Follows completion of all explorers
 
     plan_dir = f"{ITER_DIR}/plan"
 
@@ -660,10 +878,15 @@ Create report at: {exploration_dir}/explorer-3-report.md"
         # Spawn planner
         # Use Task tool with subagent_type: "2l-planner"
 
-        # EVENT: agent_spawn
+        # EVENT: agent_spawn (Planner)
+        # Track planner agent creation
         if [ "$EVENT_LOGGING_ENABLED" = true ]; then
           log_2l_event "agent_spawn" "Planner: Creating development plan" "planning" "planner-1"
         fi
+
+        # Event details:
+        # - Single planner agent per iteration
+        # - agent_id: "planner-1" (or just "planner" for singleton)
 
         spawn_task(
             type="2l-planner",
@@ -685,18 +908,27 @@ All files go in: {plan_dir}/"
 
         print("      Planner spawned, waiting for completion...")
 
-        # EVENT: agent_complete
+        # EVENT: agent_complete (Planner)
+        # NOTE: Planner emits this event itself when writing final plan files
         if [ "$EVENT_LOGGING_ENABLED" = true ]; then
           log_2l_event "agent_complete" "Planner-1 completed" "planning" "planner-1"
         fi
 
+        # Event details:
+        # - Emitted when all 4 plan files created (overview, tech-stack, patterns, builder-tasks)
+
     # Phase 3: BUILDING
     print(f"   Phase 3: Building")
 
-    # EVENT: phase_change
+    # EVENT: phase_change (Building Start)
+    # Signal transition from planning to building phase
     if [ "$EVENT_LOGGING_ENABLED" = true ]; then
       log_2l_event "phase_change" "Starting Building phase" "building" "orchestrator"
     fi
+
+    # Event details:
+    # - phase: "building" - Builders implement features based on plan
+    # - Typically the longest phase in iteration
 
     building_dir = f"{ITER_DIR}/building"
     mkdir -p ${building_dir}
@@ -712,10 +944,15 @@ All files go in: {plan_dir}/"
         builder_report = f"{building_dir}/builder-{builder_id}-report.md"
 
         if not file_exists(builder_report):
-            # EVENT: agent_spawn
+            # EVENT: agent_spawn (Builder)
+            # Track creation of each builder agent
             if [ "$EVENT_LOGGING_ENABLED" = true ]; then
               log_2l_event "agent_spawn" "Builder-${builder_id}: Building assigned feature" "building" "builder-${builder_id}"
             fi
+
+            # Event details:
+            # - One agent_spawn per builder (typically 2-4 builders per iteration)
+            # - agent_id format: "builder-{N}" where N is builder number from plan
 
             spawn_task(
                 type="2l-builder",
@@ -772,10 +1009,15 @@ Create report at: {building_dir}/builder-{sub_builder_id}-report.md"
     # Phase 4: INTEGRATION (Multi-Round)
     print(f"   Phase 4: Integration")
 
-    # EVENT: phase_change
+    # EVENT: phase_change (Integration Start)
+    # Signal transition from building to integration phase
     if [ "$EVENT_LOGGING_ENABLED" = true ]; then
       log_2l_event "phase_change" "Starting Integration phase" "integration" "orchestrator"
     fi
+
+    # Event details:
+    # - phase: "integration" - Merge builder outputs into cohesive codebase
+    # - May have multiple rounds (up to 3) if conflicts detected
 
     integration_dir = f"{ITER_DIR}/integration"
     mkdir -p ${integration_dir}
@@ -891,10 +1133,15 @@ Create report at: {round_dir}/ivalidation-report.md"
     # Phase 5: VALIDATION
     print(f"   Phase 5: Validation")
 
-    # EVENT: phase_change
+    # EVENT: phase_change (Validation Start)
+    # Signal transition from integration to validation phase
     if [ "$EVENT_LOGGING_ENABLED" = true ]; then
       log_2l_event "phase_change" "Starting Validation phase" "validation" "orchestrator"
     fi
+
+    # Event details:
+    # - phase: "validation" - Validator runs all tests and checks
+    # - Critical phase that determines iteration success/failure
 
     validation_dir = f"{ITER_DIR}/validation"
     mkdir -p ${validation_dir}
@@ -930,9 +1177,16 @@ Create report at: {validation_dir}/validation-report.md"
     validation_status = extract_validation_status(validation_report)
 
     # EVENT: validation_result
+    # Document the outcome of validation phase
     if [ "$EVENT_LOGGING_ENABLED" = true ]; then
       log_2l_event "validation_result" "Validation: ${validation_status}" "validation" "validator-1"
     fi
+
+    # Event details:
+    # - event_type: "validation_result" - Special event for validation outcome
+    # - data: Includes validation status (PASS or FAIL)
+    # - agent_id: "validator-1" (validator agent that ran the checks)
+    # - Purpose: Dashboard highlights validation success/failure prominently
 
     if validation_status == 'PASS':
         print(f"   ✅ Validation PASSED")
@@ -942,10 +1196,16 @@ Create report at: {validation_dir}/validation-report.md"
     print(f"   ⚠️  Validation FAILED")
     print(f"   Phase 6: Healing")
 
-    # EVENT: phase_change
+    # EVENT: phase_change (Healing Start)
+    # Signal transition to healing phase after validation failure
     if [ "$EVENT_LOGGING_ENABLED" = true ]; then
       log_2l_event "phase_change" "Starting Healing phase" "healing" "orchestrator"
     fi
+
+    # Event details:
+    # - phase: "healing" - Healers fix validation failures
+    # - Only occurs if validation status == FAIL
+    # - Up to 2 healing attempts before manual intervention required
 
     max_healing_attempts = 2
     healing_attempt = 1
@@ -1127,10 +1387,17 @@ Create report at: {healing_dir}/validation-report.md"
         if validation_status == 'PASS':
             print(f"      ✅ Healing successful!")
 
-            # EVENT: iteration_complete (after healing)
+            # EVENT: iteration_complete (After Healing)
+            # Mark successful iteration completion after healing
             if [ "$EVENT_LOGGING_ENABLED" = true ]; then
               log_2l_event "iteration_complete" "Iteration ${global_iter} completed after healing" "complete" "orchestrator"
             fi
+
+            # Event details:
+            # - event_type: "iteration_complete" - Iteration success marker
+            # - data: Notes iteration completed after healing (not first-pass validation)
+            # - phase: "complete" - Terminal phase
+            # - Purpose: Dashboard marks iteration as successful, ready for next iteration
 
             return  # Iteration complete!
 

@@ -18,6 +18,50 @@ Read all exploration reports and requirements, then create a comprehensive plan 
    - Synthesize findings across all explorers
    - Resolve any conflicting recommendations
 
+# Event Emission
+
+You MUST emit exactly 2 events during your execution to enable orchestration observability.
+
+## 1. Agent Start Event
+
+**When:** Immediately after reading all input files, before beginning your work
+
+**Purpose:** Signal the orchestrator that you have started processing
+
+**Code:**
+```bash
+# Source event logger if available
+if [ -f "$HOME/.claude/lib/2l-event-logger.sh" ]; then
+  . "$HOME/.claude/lib/2l-event-logger.sh"
+
+  # Emit agent_start event
+  log_2l_event "agent_start" "Planner: Starting comprehensive plan creation" "planning" "planner"
+fi
+```
+
+## 2. Agent Complete Event
+
+**When:** After finishing all work, immediately before writing your final report
+
+**Purpose:** Signal the orchestrator that you have completed successfully
+
+**Code:**
+```bash
+# Emit agent_complete event
+if [ -f "$HOME/.claude/lib/2l-event-logger.sh" ]; then
+  . "$HOME/.claude/lib/2l-event-logger.sh"
+
+  log_2l_event "agent_complete" "Planner: Comprehensive plan creation complete" "planning" "planner"
+fi
+```
+
+## Important Notes
+
+- Event emission is OPTIONAL and fails gracefully if library unavailable
+- NEVER block your work due to event logging issues
+- Events help orchestrator track progress but are not critical to your core function
+- If unsure about phase, use the phase from your input context (usually specified in task description)
+
 # Your Outputs
 
 Create the **plan folder**: `.2L/iteration-1/plan/`

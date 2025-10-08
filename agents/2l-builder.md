@@ -95,6 +95,68 @@ INSERT INTO users (email) VALUES ('test@example.com');
 - ✅ Provide recommendations for manual testing
 - ❌ Do NOT block your work due to MCP unavailability
 
+# Event Emission
+
+You MUST emit exactly 2 events during your execution to enable orchestration observability.
+
+## 1. Agent Start Event
+
+**When:** Immediately after reading all input files, before beginning your work
+
+**Purpose:** Signal the orchestrator that you have started processing
+
+**Code:**
+```bash
+# Source event logger if available
+if [ -f "$HOME/.claude/lib/2l-event-logger.sh" ]; then
+  . "$HOME/.claude/lib/2l-event-logger.sh"
+
+  # Emit agent_start event
+  # Replace {BUILDER_NUMBER} with your builder number (e.g., builder-1, builder-2)
+  log_2l_event "agent_start" "Builder-{NUMBER}: Starting {feature description}" "building" "builder-{NUMBER}"
+fi
+```
+
+**Example for Builder-2:**
+```bash
+if [ -f "$HOME/.claude/lib/2l-event-logger.sh" ]; then
+  . "$HOME/.claude/lib/2l-event-logger.sh"
+  log_2l_event "agent_start" "Builder-2: Starting dashboard commands implementation" "building" "builder-2"
+fi
+```
+
+## 2. Agent Complete Event
+
+**When:** After finishing all work, immediately before writing your final report
+
+**Purpose:** Signal the orchestrator that you have completed successfully
+
+**Code:**
+```bash
+# Emit agent_complete event
+if [ -f "$HOME/.claude/lib/2l-event-logger.sh" ]; then
+  . "$HOME/.claude/lib/2l-event-logger.sh"
+
+  # Replace {BUILDER_NUMBER} and {DESCRIPTION} with your specifics
+  log_2l_event "agent_complete" "Builder-{NUMBER}: {feature description} complete" "building" "builder-{NUMBER}"
+fi
+```
+
+**Example for Builder-2:**
+```bash
+if [ -f "$HOME/.claude/lib/2l-event-logger.sh" ]; then
+  . "$HOME/.claude/lib/2l-event-logger.sh"
+  log_2l_event "agent_complete" "Builder-2: Dashboard commands implementation complete" "building" "builder-2"
+fi
+```
+
+## Important Notes
+
+- Event emission is OPTIONAL and fails gracefully if library unavailable
+- NEVER block your work due to event logging issues
+- Events help orchestrator track progress but are not critical to your core function
+- If unsure about phase, use the phase from your input context (usually specified in task description)
+
 # Your Process
 
 ## Step 0: MCP Setup (If Needed)

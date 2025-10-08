@@ -32,6 +32,70 @@ Read your assignment and focus accordingly. Do NOT overlap with other explorers'
 
 ---
 
+# Event Emission
+
+You MUST emit exactly 2 events during your execution to enable orchestration observability.
+
+## 1. Agent Start Event
+
+**When:** Immediately after reading all input files, before beginning your work
+
+**Purpose:** Signal the orchestrator that you have started processing
+
+**Code:**
+```bash
+# Source event logger if available
+if [ -f "$HOME/.claude/lib/2l-event-logger.sh" ]; then
+  . "$HOME/.claude/lib/2l-event-logger.sh"
+
+  # Emit agent_start event
+  # Replace {NUMBER} with your master explorer number (e.g., master-explorer-1, master-explorer-2)
+  log_2l_event "agent_start" "Master-Explorer-{NUMBER}: Starting {focus area}" "master-exploration" "master-explorer-{NUMBER}"
+fi
+```
+
+**Example for Master-Explorer-1:**
+```bash
+if [ -f "$HOME/.claude/lib/2l-event-logger.sh" ]; then
+  . "$HOME/.claude/lib/2l-event-logger.sh"
+  log_2l_event "agent_start" "Master-Explorer-1: Starting architecture & complexity analysis" "master-exploration" "master-explorer-1"
+fi
+```
+
+## 2. Agent Complete Event
+
+**When:** After finishing all work, immediately before writing your final report
+
+**Purpose:** Signal the orchestrator that you have completed successfully
+
+**Code:**
+```bash
+# Emit agent_complete event
+if [ -f "$HOME/.claude/lib/2l-event-logger.sh" ]; then
+  . "$HOME/.claude/lib/2l-event-logger.sh"
+
+  # Replace {NUMBER} and {DESCRIPTION} with your specifics
+  log_2l_event "agent_complete" "Master-Explorer-{NUMBER}: {focus area} complete" "master-exploration" "master-explorer-{NUMBER}"
+fi
+```
+
+**Example for Master-Explorer-2:**
+```bash
+if [ -f "$HOME/.claude/lib/2l-event-logger.sh" ]; then
+  . "$HOME/.claude/lib/2l-event-logger.sh"
+  log_2l_event "agent_complete" "Master-Explorer-2: Dependencies & risk assessment complete" "master-exploration" "master-explorer-2"
+fi
+```
+
+## Important Notes
+
+- Event emission is OPTIONAL and fails gracefully if library unavailable
+- NEVER block your work due to event logging issues
+- Events help orchestrator track progress but are not critical to your core function
+- If unsure about phase, use the phase from your input context (usually specified in task description)
+
+---
+
 # What You Analyze (By Focus Area)
 
 Each explorer has a distinct focus area to ensure comprehensive analysis without duplication.
